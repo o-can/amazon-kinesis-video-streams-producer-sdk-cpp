@@ -135,7 +135,7 @@ const unsigned char cpd[] = { 0x01, 0x42, 0x00, 0x20, 0xff, 0xe1, 0x00, 0x23, 0x
 unique_ptr<Credentials> credentials_;
 
 typedef struct _CustomData {
-    GstElement *pipeline, *source, *source_filter, *encoder, *filter, *appsink;
+    GstElement *pipeline, *source, *source_filter, *encoder, *filter, *appsink, *video_convert;
     GstBus *bus;
     GMainLoop *main_loop;
     unique_ptr<KinesisVideoProducer> kinesis_video_producer;
@@ -285,6 +285,7 @@ int gstreamer_init(int argc, char* argv[]) {
 
     CustomData data;
     GstStateChangeReturn ret;
+    bool vtenc;
 
     /* init data struct */
     memset(&data, 0, sizeof(data));
