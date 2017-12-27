@@ -9,7 +9,8 @@ using namespace std;
 using namespace com::amazonaws::kinesis::video;
 using namespace log4cplus;
 
-#ifdef __cplusplus 
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -26,120 +27,127 @@ LOGGER_TAG("com.amazonaws.kinesis.video.gstreamer");
 #define SESSION_TOKEN_ENV_VAR "AWS_SESSION_TOKEN"
 #define DEFAULT_REGION_ENV_VAR "AWS_DEFAULT_REGION"
 
-namespace com { namespace amazonaws { namespace kinesis { namespace video {
 
-class SampleClientCallbackProvider : public ClientCallbackProvider {
-public:
+namespace com {
+    namespace amazonaws {
+        namespace kinesis {
+            namespace video {
 
-    StorageOverflowPressureFunc getStorageOverflowPressureCallback() override {
-        return storageOverflowPressure;
-    }
+                class SampleClientCallbackProvider : public ClientCallbackProvider {
+                public:
 
-    static STATUS storageOverflowPressure(UINT64 custom_handle, UINT64 remaining_bytes);
-};
+                    StorageOverflowPressureFunc getStorageOverflowPressureCallback() override {
+                        return storageOverflowPressure;
+                    }
 
-class SampleStreamCallbackProvider : public StreamCallbackProvider {
-public:
+                    static STATUS storageOverflowPressure(UINT64 custom_handle, UINT64 remaining_bytes);
+                };
 
-    StreamConnectionStaleFunc getStreamConnectionStaleCallback() override {
-        return streamConnectionStaleHandler;
-    };
+                class SampleStreamCallbackProvider : public StreamCallbackProvider {
+                public:
 
-    StreamErrorReportFunc getStreamErrorReportCallback() override {
-        return streamErrorReportHandler;
-    };
+                    StreamConnectionStaleFunc getStreamConnectionStaleCallback() override {
+                        return streamConnectionStaleHandler;
+                    };
 
-    DroppedFrameReportFunc getDroppedFrameReportCallback() override {
-        return droppedFrameReportHandler;
-    };
+                    StreamErrorReportFunc getStreamErrorReportCallback() override {
+                        return streamErrorReportHandler;
+                    };
 
-private:
-    static STATUS
-    streamConnectionStaleHandler(UINT64 custom_data, STREAM_HANDLE stream_handle,
-                                 UINT64 last_buffering_ack);
+                    DroppedFrameReportFunc getDroppedFrameReportCallback() override {
+                        return droppedFrameReportHandler;
+                    };
 
-    static STATUS
-    streamErrorReportHandler(UINT64 custom_data, STREAM_HANDLE stream_handle, UINT64 errored_timecode,
-                             STATUS status_code);
+                private:
+                    static STATUS
+                    streamConnectionStaleHandler(UINT64 custom_data, STREAM_HANDLE stream_handle,
+                                                 UINT64 last_buffering_ack);
 
-    static STATUS
-    droppedFrameReportHandler(UINT64 custom_data, STREAM_HANDLE stream_handle,
-                              UINT64 dropped_frame_timecode);
-};
+                    static STATUS
+                    streamErrorReportHandler(UINT64 custom_data, STREAM_HANDLE stream_handle, UINT64 errored_timecode,
+                                             STATUS status_code);
 
-class SampleCredentialProvider : public StaticCredentialProvider {
-    // Test rotation period is 40 second for the grace period.
-    const std::chrono::duration<uint64_t> ROTATION_PERIOD = std::chrono::seconds(2400);
-public:
-    SampleCredentialProvider(const Credentials &credentials) :
-            StaticCredentialProvider(credentials) {}
+                    static STATUS
+                    droppedFrameReportHandler(UINT64 custom_data, STREAM_HANDLE stream_handle,
+                                              UINT64 dropped_frame_timecode);
+                };
 
-    void updateCredentials(Credentials &credentials) override {
-        // Copy the stored creds forward
-        credentials = credentials_;
+                class SampleCredentialProvider : public StaticCredentialProvider {
+                    // Test rotation period is 40 second for the grace period.
+                    const std::chrono::duration <uint64_t> ROTATION_PERIOD = std::chrono::seconds(2400);
+                public:
+                    SampleCredentialProvider(const Credentials &credentials) :
+                            StaticCredentialProvider(credentials) {}
 
-        // Update only the expiration
-        auto now_time = std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::steady_clock::now().time_since_epoch());
-        auto expiration_seconds = now_time + ROTATION_PERIOD;
-        credentials.setExpiration(std::chrono::seconds(expiration_seconds.count()));
-        LOG_INFO("New credentials expiration is " << credentials.getExpiration().count());
-    }
-};
+                    void updateCredentials(Credentials &credentials) override {
+                        // Copy the stored creds forward
+                        credentials = credentials_;
 
-class SampleDeviceInfoProvider : public DefaultDeviceInfoProvider {
-public:
-    device_info_t getDeviceInfo() override {
-        auto device_info = DefaultDeviceInfoProvider::getDeviceInfo();
-        // Set the storage size to 256mb
-        device_info.storageInfo.storageSize = 512 * 1024 * 1024;
-        return device_info;
-    }
-};
+                        // Update only the expiration
+                        auto now_time = std::chrono::duration_cast<std::chrono::seconds>(
+                                std::chrono::steady_clock::now().time_since_epoch());
+                        auto expiration_seconds = now_time + ROTATION_PERIOD;
+                        credentials.setExpiration(std::chrono::seconds(expiration_seconds.count()));
+                        LOG_INFO("New credentials expiration is " << credentials.getExpiration().count());
+                    }
+                };
 
-STATUS
-SampleClientCallbackProvider::storageOverflowPressure(UINT64 custom_handle, UINT64 remaining_bytes) {
-    UNUSED_PARAM(custom_handle);
-    LOG_WARN("Reporting storage overflow. Bytes remaining " << remaining_bytes);
-    return STATUS_SUCCESS;
-}
+                class SampleDeviceInfoProvider : public DefaultDeviceInfoProvider {
+                public:
+                    device_info_t getDeviceInfo() override {
+                        auto device_info = DefaultDeviceInfoProvider::getDeviceInfo();
+                        // Set the storage size to 256mb
+                        device_info.storageInfo.storageSize = 512 * 1024 * 1024;
+                        return device_info;
+                    }
+                };
 
-STATUS SampleStreamCallbackProvider::streamConnectionStaleHandler(UINT64 custom_data,
-                                                                  STREAM_HANDLE stream_handle,
-                                                                  UINT64 last_buffering_ack) {
-    LOG_WARN("Reporting stream stale. Last ACK received " << last_buffering_ack);
-    return STATUS_SUCCESS;
-}
+                STATUS
+                SampleClientCallbackProvider::storageOverflowPressure(UINT64 custom_handle, UINT64 remaining_bytes) {
+                    UNUSED_PARAM(custom_handle);
+                    LOG_WARN("Reporting storage overflow. Bytes remaining " << remaining_bytes);
+                    return STATUS_SUCCESS;
+                }
 
-STATUS
-SampleStreamCallbackProvider::streamErrorReportHandler(UINT64 custom_data, STREAM_HANDLE stream_handle,
-                                                       UINT64 errored_timecode, STATUS status_code) {
-    LOG_ERROR("Reporting stream error. Errored timecode: " << errored_timecode << " Status: "
-                                                           << status_code);
-    return STATUS_SUCCESS;
-}
+                STATUS SampleStreamCallbackProvider::streamConnectionStaleHandler(UINT64 custom_data,
+                                                                                  STREAM_HANDLE stream_handle,
+                                                                                  UINT64 last_buffering_ack) {
+                    LOG_WARN("Reporting stream stale. Last ACK received " << last_buffering_ack);
+                    return STATUS_SUCCESS;
+                }
 
-STATUS
-SampleStreamCallbackProvider::droppedFrameReportHandler(UINT64 custom_data, STREAM_HANDLE stream_handle,
-                                                        UINT64 dropped_frame_timecode) {
-    LOG_WARN("Reporting dropped frame. Frame timecode " << dropped_frame_timecode);
-    return STATUS_SUCCESS;
-}
+                STATUS
+                SampleStreamCallbackProvider::streamErrorReportHandler(UINT64 custom_data, STREAM_HANDLE stream_handle,
+                                                                       UINT64 errored_timecode, STATUS status_code) {
+                    LOG_ERROR("Reporting stream error. Errored timecode: " << errored_timecode << " Status: "
+                                                                           << status_code);
+                    return STATUS_SUCCESS;
+                }
 
-}  // namespace video
-}  // namespace kinesis
-}  // namespace amazonaws
+                STATUS
+                SampleStreamCallbackProvider::droppedFrameReportHandler(UINT64 custom_data, STREAM_HANDLE stream_handle,
+                                                                        UINT64 dropped_frame_timecode) {
+                    LOG_WARN("Reporting dropped frame. Frame timecode " << dropped_frame_timecode);
+                    return STATUS_SUCCESS;
+                }
+
+            }  // namespace video
+        }  // namespace kinesis
+    }  // namespace amazonaws
 }  // namespace com;
 
-const unsigned char cpd[] = { 0x01, 0x42, 0x00, 0x20, 0xff, 0xe1, 0x00, 0x23, 0x27, 0x42, 0x00, 0x20, 0x89, 0x8b, 0x60, 0x28, 0x02, 0xdd, 0x80, 0x9e, 0x00, 0x00, 0x4e, 0x20, 0x00, 0x0f, 0x42, 0x41, 0xc0, 0xc0, 0x01, 0x77, 0x00, 0x00, 0x5d, 0xc1, 0x7b, 0xdf, 0x07, 0xc2, 0x21, 0x1b, 0x80, 0x01, 0x00, 0x04, 0x28, 0xce, 0x1f, 0x20 };
-unique_ptr<Credentials> credentials_;
+const unsigned char cpd[] = {0x01, 0x42, 0x00, 0x20, 0xff, 0xe1, 0x00, 0x23, 0x27, 0x42, 0x00, 0x20, 0x89, 0x8b, 0x60,
+                             0x28, 0x02, 0xdd, 0x80, 0x9e, 0x00, 0x00, 0x4e, 0x20, 0x00, 0x0f, 0x42, 0x41, 0xc0, 0xc0,
+                             0x01, 0x77, 0x00, 0x00, 0x5d, 0xc1, 0x7b, 0xdf, 0x07, 0xc2, 0x21, 0x1b, 0x80, 0x01, 0x00,
+                             0x04, 0x28, 0xce, 0x1f, 0x20};
+unique_ptr <Credentials> credentials_;
 
 typedef struct _CustomData {
-    GstElement *pipeline, *source, *source_filter, *encoder, *filter, *appsink, *video_convert;
+    GstElement *pipeline, *source, *source_filter, *encoder, *filter, *appsink;
     GstBus *bus;
     GMainLoop *main_loop;
-    unique_ptr<KinesisVideoProducer> kinesis_video_producer;
-    shared_ptr<KinesisVideoStream> kinesis_video_stream;
+    unique_ptr <KinesisVideoProducer> kinesis_video_producer;
+    shared_ptr <KinesisVideoStream> kinesis_video_stream;
 } CustomData;
 
 void create_kinesis_video_frame(Frame *frame, const nanoseconds &pts, const nanoseconds &dts, FRAME_FLAGS flags,
@@ -152,14 +160,15 @@ void create_kinesis_video_frame(Frame *frame, const nanoseconds &pts, const nano
     frame->frameData = reinterpret_cast<PBYTE>(data);
 }
 
-bool put_frame(shared_ptr<KinesisVideoStream> kinesis_video_stream, void *data, size_t len, const nanoseconds &pts, const nanoseconds &dts, FRAME_FLAGS flags) {
+bool put_frame(shared_ptr <KinesisVideoStream> kinesis_video_stream, void *data, size_t len, const nanoseconds &pts,
+               const nanoseconds &dts, FRAME_FLAGS flags) {
     Frame frame;
     create_kinesis_video_frame(&frame, pts, dts, flags, data, len);
     return kinesis_video_stream->putFrame(frame);
 }
 
 static GstFlowReturn on_new_sample(GstElement *sink, CustomData *data) {
-    GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK (sink));
+    GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
     GstBuffer *buffer = gst_sample_get_buffer(sample);
     size_t buffer_size = gst_buffer_get_size(buffer);
     uint8_t *frame_data = new uint8_t[buffer_size];
@@ -185,7 +194,7 @@ static void error_cb(GstBus *bus, GstMessage *msg, CustomData *data) {
 
     /* Print error details on the screen */
     gst_message_parse_error(msg, &err, &debug_info);
-    g_printerr("Error received from element %s: %s\n", GST_OBJECT_NAME (msg->src), err->message);
+    g_printerr("Error received from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
     g_printerr("Debugging information: %s\n", debug_info ? debug_info : "none");
     g_clear_error(&err);
     g_free(debug_info);
@@ -194,9 +203,9 @@ static void error_cb(GstBus *bus, GstMessage *msg, CustomData *data) {
 }
 
 void kinesis_video_init(CustomData *data, char *stream_name) {
-    unique_ptr<DeviceInfoProvider> device_info_provider = make_unique<SampleDeviceInfoProvider>();
-    unique_ptr<ClientCallbackProvider> client_callback_provider = make_unique<SampleClientCallbackProvider>();
-    unique_ptr<StreamCallbackProvider> stream_callback_provider = make_unique<SampleStreamCallbackProvider>();
+    unique_ptr <DeviceInfoProvider> device_info_provider = make_unique<SampleDeviceInfoProvider>();
+    unique_ptr <ClientCallbackProvider> client_callback_provider = make_unique<SampleClientCallbackProvider>();
+    unique_ptr <StreamCallbackProvider> stream_callback_provider = make_unique<SampleStreamCallbackProvider>();
 
     char const *accessKey;
     char const *secretKey;
@@ -228,7 +237,7 @@ void kinesis_video_init(CustomData *data, char *stream_name) {
                                             string(secretKey),
                                             sessionTokenStr,
                                             std::chrono::seconds(180));
-    unique_ptr<CredentialProvider> credential_provider = make_unique<SampleCredentialProvider>(*credentials_.get());
+    unique_ptr <CredentialProvider> credential_provider = make_unique<SampleCredentialProvider>(*credentials_.get());
 
     data->kinesis_video_producer = KinesisVideoProducer::createSync(move(device_info_provider),
                                                                     move(client_callback_provider),
@@ -238,7 +247,7 @@ void kinesis_video_init(CustomData *data, char *stream_name) {
 
     LOG_DEBUG("Client is ready");
     /* create a test stream */
-    map<string, string> tags;
+    map <string, string> tags;
     char tag_name[MAX_TAG_NAME_LEN];
     char tag_val[MAX_TAG_VALUE_LEN];
     sprintf(tag_name, "piTag");
@@ -273,7 +282,7 @@ void kinesis_video_init(CustomData *data, char *stream_name) {
     LOG_DEBUG("Stream is ready");
 }
 
-int gstreamer_init(int argc, char* argv[]) {
+int gstreamer_init(int argc, char *argv[]) {
     BasicConfigurator config;
     config.configure();
 
@@ -285,7 +294,6 @@ int gstreamer_init(int argc, char* argv[]) {
 
     CustomData data;
     GstStateChangeReturn ret;
-    bool vtenc;
 
     /* init data struct */
     memset(&data, 0, sizeof(data));
@@ -317,7 +325,7 @@ int gstreamer_init(int argc, char* argv[]) {
     }
 
     /* configure source */
-    g_object_set(G_OBJECT(data.source), "do-timestamp", TRUE, "hflip", TRUE, "vflip", TRUE, "bitrate", 1000000, "keyframe-interval", 45, "preview",
+    g_object_set(G_OBJECT(data.source), "do-timestamp", TRUE, "bitrate", 500000, "keyframe-interval", 45, "preview",
                  FALSE, "inline-headers", TRUE, "sensor-mode", 5, "use-stc", FALSE, NULL);
 
     /* source filter */
@@ -326,7 +334,7 @@ int gstreamer_init(int argc, char* argv[]) {
                                                "height", GST_TYPE_INT_RANGE, 240, 1080,
                                                "framerate", GST_TYPE_FRACTION_RANGE, 0, 1, 30, 1,
                                                NULL);
-    g_object_set(G_OBJECT (data.source_filter), "caps", source_caps, NULL);
+    g_object_set(G_OBJECT(data.source_filter), "caps", source_caps, NULL);
     gst_caps_unref(source_caps);
 
 
@@ -339,11 +347,11 @@ int gstreamer_init(int argc, char* argv[]) {
                                              "height", GST_TYPE_INT_RANGE, 240, 1080,
                                              "framerate", GST_TYPE_FRACTION_RANGE, 0, 1, 30, 1,
                                              NULL);
-    g_object_set(G_OBJECT (data.filter), "caps", h264_caps, NULL);
+    g_object_set(G_OBJECT(data.filter), "caps", h264_caps, NULL);
     gst_caps_unref(h264_caps);
 
     /* configure appsink */
-    g_object_set(G_OBJECT (data.appsink), "emit-signals", TRUE, "sync", FALSE, NULL);
+    g_object_set(G_OBJECT(data.appsink), "emit-signals", TRUE, "sync", FALSE, NULL);
     g_signal_connect(data.appsink, "new-sample", G_CALLBACK(on_new_sample), &data);
 
     /* build the pipeline */
@@ -358,7 +366,7 @@ int gstreamer_init(int argc, char* argv[]) {
     /* Instruct the bus to emit signals for each received message, and connect to the interesting signals */
     data.bus = gst_element_get_bus(data.pipeline);
     gst_bus_add_signal_watch(data.bus);
-    g_signal_connect (G_OBJECT(data.bus), "message::error", (GCallback) error_cb, &data);
+    g_signal_connect(G_OBJECT(data.bus), "message::error", (GCallback) error_cb, &data);
     gst_object_unref(data.bus);
 
     /* start streaming */
