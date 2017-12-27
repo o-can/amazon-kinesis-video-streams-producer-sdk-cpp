@@ -379,6 +379,28 @@ if [ ! -f $DOWNLOADS/local/lib/gstreamer-1.0/gst-rpicamsrc.dylib ]; then
   fi
 fi
 
+echo "Checking gst-rpicamsrc at $DOWNLOADS/local/lib/gstreamer-1.0/gst-rpicamsrc.dylib/.so"
+if [ ! -f $DOWNLOADS/local/lib/gstreamer-1.0/gst-rpicamsrc.dylib ]; then
+  if [ ! -f $DOWNLOADS/local/lib/gstreamer-1.0/gst-rpicamsrc.so ]; then
+    echo "rpicamsrc not found. Installing"
+    if [ ! -d $DOWNLOADS/gst-rpicamsrc ]; then
+      cd $DOWNLOADS
+      git clone "https://github.com/thaytan/gst-rpicamsrc"
+    fi
+    cd $DOWNLOADS/gst-rpicamsrc
+
+    for d in ./*/ ; do
+      if [ -f "$d/configure.ac" ]; then
+        (cd "$d" && autoreconf -f -i);
+      fi
+    done
+
+    ./configure --prefix=$DOWNLOADS/local --disable-gtk-doc -- CFLAGS="-I$DOWNLOADS/local/include" LDFLAGS="-L$DOWNLOADS/local/lib"
+    make
+    make install
+  fi
+fi
+
 echo "Checking x264 at $DOWNLOADS/local/lib/libx264.dylib/.so"
 if [ ! -f $DOWNLOADS/local/lib/libx264.dylib ]; then
   if [ ! -f $DOWNLOADS/local/lib/libx264.so ]; then
