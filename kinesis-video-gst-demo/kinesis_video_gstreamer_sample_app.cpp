@@ -135,7 +135,7 @@ const unsigned char cpd[] = { 0x01, 0x42, 0x00, 0x20, 0xff, 0xe1, 0x00, 0x23, 0x
 unique_ptr<Credentials> credentials_;
 
 typedef struct _CustomData {
-    GstElement *pipeline, *source, *source_filter, *encoder, *filter, *appsink, *video_convert;
+    GstElement *pipeline, *source, *source_filter, *encoder, *filter, *appsink;
     GstBus *bus;
     GMainLoop *main_loop;
     unique_ptr<KinesisVideoProducer> kinesis_video_producer;
@@ -285,7 +285,6 @@ int gstreamer_init(int argc, char* argv[]) {
 
     CustomData data;
     GstStateChangeReturn ret;
-    bool vtenc;
 
     /* init data struct */
     memset(&data, 0, sizeof(data));
@@ -305,32 +304,20 @@ int gstreamer_init(int argc, char* argv[]) {
     data.source_filter = gst_element_factory_make("capsfilter", "source_filter");
     data.filter = gst_element_factory_make("capsfilter", "encoder_filter");
     data.appsink = gst_element_factory_make("appsink", "appsink");
-    data.video_convert = gst_element_factory_make("videoconvert", "video_convert");
-
-    // Attempt to create vtenc encoder
-    data.encoder = gst_element_factory_make("vtenc_h264_hw", "encoder");
-    if (data.encoder) {
-        data.source = gst_element_factory_make("autovideosrc", "source");
-        vtenc = true;
-    } else {
-        // Failed creating vtenc - attempt x264
-        data.encoder = gst_element_factory_make("x264enc", "encoder");
-        data.source = gst_element_factory_make("v4l2src", "source");
-        vtenc = false;
-    }
+    data.encoder = gst_element_factory_make("h264parse", "encoder");
+    data.source = gst_element_factory_make("rpicamsrc", "source");
 
     /* create an empty pipeline */
     data.pipeline = gst_pipeline_new("test-pipeline");
 
-    if (!data.pipeline || !data.source || !data.source_filter || !data.encoder || !data.filter || !data.appsink || !data.video_convert) {
+    if (!data.pipeline || !data.source || !data.source_filter || !data.filter || !data.appsink || !data.encoder) {
         g_printerr("Not all elements could be created.\n");
         return 1;
     }
 
     /* configure source */
-    if (!vtenc) {
-        g_object_set(G_OBJECT (data.source), "do-timestamp", TRUE, "device", "/dev/video0", NULL);
-    }
+    g_object_set(G_OBJECT(data.source), "do-timestamp", TRUE, "bitrate", 500000, "keyframe-interval", 45, "preview",
+                 FALSE, "inline-headers", TRUE, "sensor-mode", 5, "use-stc", FALSE, NULL);
 
     /* source filter */
     GstCaps *source_caps = gst_caps_new_simple("video/x-raw",
@@ -341,13 +328,6 @@ int gstreamer_init(int argc, char* argv[]) {
     g_object_set(G_OBJECT (data.source_filter), "caps", source_caps, NULL);
     gst_caps_unref(source_caps);
 
-    /* configure encoder */
-    if (vtenc) {
-        g_object_set(G_OBJECT (data.encoder), "allow-frame-reordering", FALSE, "realtime", TRUE, "max-keyframe-interval",
-                          45, "bitrate", 512, NULL);
-    } else {
-        g_object_set(G_OBJECT (data.encoder), "bframes", 0, "key-int-max", 45, "bitrate", 512, NULL);
-    }
 
     /* configure filter */
     GstCaps *h264_caps = gst_caps_new_simple("video/x-h264",
@@ -366,9 +346,9 @@ int gstreamer_init(int argc, char* argv[]) {
     g_signal_connect(data.appsink, "new-sample", G_CALLBACK(on_new_sample), &data);
 
     /* build the pipeline */
-    gst_bin_add_many(GST_BIN (data.pipeline), data.source, data.source_filter, data.video_convert, data.encoder, data.filter,
-        data.appsink, NULL);
-    if (gst_element_link_many(data.source, data.source_filter, data.video_convert, data.encoder, data.filter, data.appsink, NULL) != TRUE) {
+    gst_bin_add_many(GST_BIN(data.pipeline), data.source, data.source_filter, data.encoder, data.filter, data.appsink,
+                     NULL);
+    if (gst_element_link_many(data.source, data.source_filter, data.encoder, data.filter, data.appsink, NULL) != TRUE) {
         g_printerr("Elements could not be linked.\n");
         gst_object_unref(data.pipeline);
         return 1;
@@ -397,6 +377,7 @@ int gstreamer_init(int argc, char* argv[]) {
     return 0;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
+    LOG_CONFIGURE("log4cplus.properties");
     return gstreamer_init(argc, argv);
 }
