@@ -1,7 +1,7 @@
 This is a fork of https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp
 
 Changes:
-* kinesis-video-gst-demo is now using RasPi Cam HW encoded stream instead of software H264 encoder for better fps.
+* kinesis-video-gst-demo is now using RasPi Cam HW encoded stream instead of software H264 encoder for better fps and less CPU overhead.
 
 ---
 
