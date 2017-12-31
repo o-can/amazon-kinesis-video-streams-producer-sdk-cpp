@@ -285,6 +285,7 @@ int gstreamer_init(int argc, char* argv[]) {
 
     CustomData data;
     GstStateChangeReturn ret;
+    bool vtenc;
 
     /* init data struct */
     memset(&data, 0, sizeof(data));
@@ -316,7 +317,7 @@ int gstreamer_init(int argc, char* argv[]) {
     }
 
     /* configure source */
-    g_object_set(G_OBJECT(data.source), "do-timestamp", TRUE, "hflip", TRUE, "vflip", TRUE, "bitrate", 1000000, "keyframe-interval", 45, "preview",
+    g_object_set(G_OBJECT(data.source), "do-timestamp", TRUE, "hflip", TRUE, "vflip", TRUE, "bitrate", 500000, "keyframe-interval", 45, "preview",
                  FALSE, "inline-headers", TRUE, "sensor-mode", 5, "use-stc", FALSE, NULL);
 
     /* source filter */
