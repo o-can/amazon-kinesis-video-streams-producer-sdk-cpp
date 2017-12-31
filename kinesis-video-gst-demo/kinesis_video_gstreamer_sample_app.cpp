@@ -325,7 +325,7 @@ int gstreamer_init(int argc, char *argv[]) {
     }
 
     /* configure source */
-    g_object_set(G_OBJECT(data.source), "do-timestamp", TRUE, "bitrate", 500000, "keyframe-interval", 45, "preview",
+    g_object_set(G_OBJECT(data.source), "do-timestamp", TRUE, "hflip", TRUE, "vflip", TRUE, "bitrate", 500000, "keyframe-interval", 45, "preview",
                  FALSE, "inline-headers", TRUE, "sensor-mode", 5, "use-stc", FALSE, NULL);
 
     /* source filter */
